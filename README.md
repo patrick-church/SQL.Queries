@@ -1,2 +1,2 @@
 # SQL.Queries
-# Various queries demonstrating my proficiency in SQL
+Various queries demonstrating my proficiency in SQL
