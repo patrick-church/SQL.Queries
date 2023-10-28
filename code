@@ -1,0 +1,211 @@
+sql1 = '''
+SELECT camis, dba, viol_desc, viol_id, count(*) as NumViol
+FROM tInsp
+JOIN tViol USING(viol_id)
+JOIN tRest USING(camis)
+WHERE viol_desc LIKE "%vermin%" OR viol_desc LIKE "%mice%" OR viol_desc LIKE "%rats%"
+GROUP BY camis, viol_desc
+ORDER BY NumViol DESC
+;'''
+d.run_query(sql1)
+
+
+
+sql2 = '''
+WITH
+ViolBYCuisineViol_id as 
+(
+  SELECT count(*) as NumViol, cuisine, viol_id, viol_desc
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tRest USING(camis)
+  GROUP BY cuisine, viol_id
+)
+SELECT cuisine, viol_id, viol_desc, max(NumViol) as NumViol
+FROM (ViolBYCuisineViol_id)
+WHERE viol_id NOT LIKE "%10f%"
+GROUP BY cuisine
+HAVING NumViol > 1000
+ORDER BY cuisine ASC
+;'''
+d.run_query(sql2)
+
+
+
+
+sql3 = '''
+SELECT action_desc, viol_desc, count(*) as NumViol
+FROM tInsp
+JOIN tViol USING(viol_id)
+JOIN tAction USING(action_id)
+WHERE action_desc LIKE "%closed%"
+GROUP BY viol_desc
+ORDER BY NumViol DESC
+LIMIT 5
+;'''
+d.run_query(sql3)
+
+
+
+
+sql4 = '''
+WITH
+MostClosedCamis as
+(
+  SELECT count(*) as MostClosed, camis, dba
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tAction USING(action_id)
+  JOIN tRest USING(camis)
+  WHERE action_desc LIKE "%closed%"
+  GROUP BY camis
+  ORDER BY MostClosed DESC
+  LIMIT 1
+)
+SELECT camis, dba, viol_desc, count(*) as NumViol
+FROM tInsp
+JOIN tViol USING(viol_id)
+JOIN tAction USING(action_id)
+JOIN tRest USING(camis)
+WHERE camis LIKE (SELECT camis FROM MostClosedCamis)
+GROUP BY viol_id
+ORDER BY NumViol DESC
+;'''
+d.run_query(sql4)
+
+
+
+
+sql5 = '''
+SELECT dba, TotalRestNum, NumViol, 1.0*NumViol/TotalRestNum as AvgViolsPerLoc
+FROM (
+    SELECT count(DISTINCT(camis)) as TotalRestNum, count(camis) as NumViol, dba
+    FROM tInsp
+    JOIN tViol USING(viol_id)
+    JOIN tAction USING(action_id)
+    JOIN tRest USING(camis)
+    GROUP BY dba
+    ORDER by TotalRestNum DESC
+    )
+;'''
+d.run_query(sql5)
+
+
+
+
+sql6 = '''
+WITH
+RestList as
+  (
+  SELECT camis, dba, count(DISTINCT(camis)) as GetRest, viol_id
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tRest USING(camis)
+  GROUP BY dba
+  HAVING GetRest = 1
+  ),
+TotalViolNum as
+  (
+  SELECT camis, dba, count(*) as NumViol
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tRest USING(camis)
+  WHERE camis IN (SELECT camis FROM RestList)
+  GROUP BY dba
+  HAVING NumViol > 10
+  ORDER BY NumViol
+  ),
+NoMore as
+  (
+  SELECT camis, dba, count(*) as NumViol, viol_desc
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tRest USING(camis)
+  WHERE camis IN (SELECT camis FROM TotalViolNum)
+  GROUP BY dba, viol_id
+  ORDER BY NumViol DESC
+  )
+SELECT camis, dba, viol_desc, Max(NumViol) as NumViol
+FROM NoMore
+GROUP BY dba
+HAVING NumViol >= 15
+ORDER BY NumViol DESC
+;'''
+d.run_query(sql6)
+
+
+
+
+sql7 = '''
+WITH
+PleaseMakeItStop as
+  (
+  SELECT count(*) as CurrentCombs
+  FROM tInsp
+  JOIN tViol USING(viol_id)
+  JOIN tAction USING(action_id)
+  GROUP BY action_id, viol_id
+  ),
+HelpMe as
+  (
+  SELECT count(DISTINCT(action_id)) as ActID, count(DISTINCT(viol_id)) as ViolID
+  FROM tInsp 
+  JOIN tViol USING(viol_id)
+  JOIN tAction USING(action_id)
+  )
+SELECT ActID*ViolID-(SELECT CurrentCombs FROM PleaseMakeItStop) as TheyDoNotOccur
+FROM HelpMe
+;'''
+d.run_query(sql7)
+
+
+
+
+
+
+sql8 = '''
+SELECT action_desc, viol_desc 
+FROM tInsp 
+JOIN tViol USING(viol_id)
+JOIN tAction USING(action_id)
+GROUP BY viol_id, action_id
+ORDER BY viol_desc ASC
+;'''
+d.run_query(sql8)
+
+
+
+
+
+
+
+
+sql9 = '''
+WITH 
+SwitchingToFinance as 
+  (
+  SELECT count(*) as NumViol, camis, dba
+  FROM tInsp
+  JOIN tRest USING(camis)
+  JOIN tViol USING(viol_id)
+  GROUP BY camis
+  HAVING NumViol >= 90
+  ),
+LmaoForgotThisPart as
+  (
+  SELECT camis, dba, viol_id, viol_desc, count(*) as NumViol
+  FROM tInsp
+  JOIN tRest USING(camis)
+  JOIN tViol USING(viol_id)
+  WHERE camis IN (SELECT camis FROM SwitchingToFinance)
+  GROUP BY viol_id, camis
+  )
+SELECT camis, dba, viol_id, viol_desc, max(NumViol) as NumViol
+FROM LmaoForgotThisPart
+GROUP BY camis
+ORDER BY dba ASC
+;'''
+d.run_query(sql9)
+
+
+
