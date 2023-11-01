@@ -39,7 +39,7 @@ FROM tInsp
 JOIN tViol USING(viol_id)
 JOIN tAction USING(action_id)
 WHERE action_desc LIKE "%closed%"
-GROUP BY viol_desc
+GROUP BY viol_desc, action_desc
 ORDER BY NumViol DESC
 LIMIT 5
 ;'''
@@ -138,25 +138,24 @@ d.run_query(sql6)
 
 sql7 = '''
 WITH
-PleaseMakeItStop as
+AllCombs as
   (
-  SELECT count(*) as CurrentCombs
-  FROM tInsp
-  JOIN tViol USING(viol_id)
-  JOIN tAction USING(action_id)
-  GROUP BY action_id, viol_id
+   SELECT viol_id, action_id
+   FROM tViol
+   JOIN tAction
   ),
-HelpMe as
+HasOccurred as
   (
-  SELECT count(DISTINCT(action_id)) as ActID, count(DISTINCT(viol_id)) as ViolID
-  FROM tInsp 
-  JOIN tViol USING(viol_id)
-  JOIN tAction USING(action_id)
+   SELECT DISTINCT viol_id, action_id
+   FROM tInsp
   )
-SELECT ActID*ViolID-(SELECT CurrentCombs FROM PleaseMakeItStop) as TheyDoNotOccur
-FROM HelpMe
-;'''
-d.run_query(sql7)
+SELECT count(*)
+FROM(
+SELECT AllCombs.action_id, AllCombs.viol_id, HasOccurred.action_id
+FROM AllCombs
+LEFT JOIN HasOccurred USING(action_id, viol_id)
+WHERE HasOccurred.action_id IS NULL
+)
 
 
 
@@ -164,13 +163,25 @@ d.run_query(sql7)
 
 
 sql8 = '''
-SELECT action_desc, viol_desc 
-FROM tInsp 
+WITH
+AllCombs as
+  (
+  SELECT viol_id, action_id
+  FROM tViol
+  JOIN tAction
+  ),
+HasOccurred as
+  (
+  SELECT DISTINCT viol_id, action_id
+  FROM tInsp
+  )
+SELECT action_desc, viol_desc
+FROM AllCombs
+LEFT JOIN HasOccurred USING(action_id, viol_id)
 JOIN tViol USING(viol_id)
 JOIN tAction USING(action_id)
-GROUP BY viol_id, action_id
+WHERE HasOccurred.action_id IS NULL
 ORDER BY viol_desc ASC
-;'''
 d.run_query(sql8)
 
 
@@ -182,7 +193,7 @@ d.run_query(sql8)
 
 sql9 = '''
 WITH 
-SwitchingToFinance as 
+NumViol>90 as 
   (
   SELECT count(*) as NumViol, camis, dba
   FROM tInsp
@@ -191,17 +202,17 @@ SwitchingToFinance as
   GROUP BY camis
   HAVING NumViol >= 90
   ),
-LmaoForgotThisPart as
+ViolByCamis as
   (
   SELECT camis, dba, viol_id, viol_desc, count(*) as NumViol
   FROM tInsp
   JOIN tRest USING(camis)
   JOIN tViol USING(viol_id)
-  WHERE camis IN (SELECT camis FROM SwitchingToFinance)
+  WHERE camis IN (SELECT camis FROM NumViol>90)
   GROUP BY viol_id, camis
   )
 SELECT camis, dba, viol_id, viol_desc, max(NumViol) as NumViol
-FROM LmaoForgotThisPart
+FROM ViolByCamis
 GROUP BY camis
 ORDER BY dba ASC
 ;'''
