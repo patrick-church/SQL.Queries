@@ -1,7 +1,7 @@
 # SQL.Queries
 Various queries demonstrating my proficiency in SQL
 
-Import sqite3, pandas
+Import sqlite3 and pandas as pd
 
 Queries are written using the 'nyc_rest_health_inspections.csv' dataset 
 
