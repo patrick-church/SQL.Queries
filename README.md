@@ -1,4 +1,4 @@
-#SQL.Queries
+# SQL.Queries
 Various queries demonstrating my proficiency in SQL
 
 Import sqlite3 and pandas as pd
